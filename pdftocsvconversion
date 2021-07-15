@@ -1,0 +1,381 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+import re
+from tika import parser, unpack
+import pdfplumber
+import pandas as pd
+from collections import namedtuple
+import glob
+import os
+import PyPDF2
+from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
+from pdfminer.layout import LAParams
+from pdfminer.converter import TextConverter
+from io import StringIO
+from pdfminer.pdfpage import PDFPage
+
+Line1 = namedtuple('Line1', 'OrderID Order_Date Invoice_Date Mobile_No Tax')
+
+path = r'C:\\Users\\ABC'
+
+for fp in os.listdir(path):
+    print(fp)
+
+lines = []
+for file in glob.glob(path + "/*.pdf"):
+    if file.endswith('.pdf'):
+        with pdfplumber.open(file) as pdf:
+            pages = pdf.pages[0]
+            text = pages.extract_text()
+            print(text)
+            for row in text.split('\n'):
+                if row.startswith('Order	No'):
+                    OrderID = row.split()[-1]
+                if row.startswith('Order	Date'):
+                    Order_Date = row.split()[-1]
+                if row.startswith('Invoice	Date'):
+                    Invoice_Date = row.split()[-1]
+                #if row.startswith('Total Amount Including Tax') or row.startswith('Grand Total'):
+                    #Total = row.split()[-1]
+                if row.startswith('Mobile	No'):
+                    Mobile_No = row.split()[-1]
+                if row.startswith('Total	IGST	Amount') or row.startswith('Total	CGST	Amount'):
+                    Tax = row.split()[-1]
+                    invoice = lines.append(Line1(OrderID, Order_Date, Invoice_Date, Mobile_No, Tax))
+                    #invoice = lines.append(Line(Order_No, Order_Date, Invoice_Date, Grand_Total))
+
+
+print(lines)
+
+df = pd.DataFrame(lines)
+
+df.head(10)
+
+names = []
+for file in glob.glob(path + "/*.pdf"):
+    if file.endswith('.pdf'):
+        with pdfplumber.open(file) as pdf:
+            pages = pdf.pages[0]
+            text = pages.extract_text()
+            text = pages.extract_text().replace('\t', ' ')
+            count = 0
+            for line in text.split('\n'):
+                count += 1
+                if count ==3:
+                    #name =  print(line)
+                    names.append(line)
+
+print(names)
+
+Line2 = namedtuple('Line1', 'OrderID Total')
+lines1 = []
+for file in glob.glob(path + "/*.pdf"):
+    if file.endswith('.pdf'):
+        with pdfplumber.open(file) as pdf:
+            pages = pdf.pages[0]
+            text = pages.extract_text()
+            text = pages.extract_text().replace("\t",'')
+            for row in text.split('\n'):
+                if row.startswith('Order	No'):
+                    OrderID = row.split()[-1]
+                if row.startswith('Total Amount') or row.startswith('Grand'):
+                    Total = row.split()[-1]
+                    invoice = lines1.append(Line2(OrderID, Total))
+                    #invoice = lines.append(Line(Order_No, Order_Date, Invoice_Date, Grand_Total))
+                    
+
+print(lines1)
+
+Line3 = namedtuple('Line1', 'Order_No Grand_Total Name')
+lines2 = []
+for file in glob.glob(path + "/*.pdf"):
+    if file.endswith('.pdf'):
+        with pdfplumber.open(file) as pdf:
+            pages = pdf.pages[0]
+            text = pages.extract_text()
+            #print(text)
+            count = 0
+            for row in text.split('\n'):
+                if row.startswith('Order	No'):
+                    Order_No = row.split()[-1]
+                if row.startswith('Total Amount') or row.startswith('Grand'):
+                    Grand_Total = row.split()[-1]
+            for line in text.split('\n'):
+                count += 1
+                if count ==3:
+                    Name = print(line)
+                    invoice = lines2.append(Line3(Order_No, Grand_Total, Name))
+                    #invoice = lines.append(Line(Order_No, Order_Date, Invoice_Date, Grand_Total))
+
+print(lines2)
+
+df1 = pd.DataFrame(lines2)
+
+df1.head(6)
+
+df['Grand_Total'] = df1['Grand_Total']
+df['Name'] = names
+
+df.head(6)
+
+import tweepy
+import numpy as np
+
+Line3 = namedtuple('Line3', 'Zone')
+lines4 = []
+for file in glob.glob(path + "/*.pdf"):
+    if file.endswith('.pdf'):
+        with pdfplumber.open(file) as pdf:
+            pages = pdf.pages[0]
+            text = pages.extract_text()
+            text = pages.extract_text().replace('\t',' ')
+            text = pages.extract_text().replace('\n',' ')
+            zone = re.compile(r'\d\d[-][a-zA-Z]+\s[a-zA-Z]+')
+            matches = zone.findall(text)
+            for match in matches:
+                if match.find("Shipment"):
+                    res = np.char.strip(match, chars='Shipment')
+                    #Zone = print(res)
+                    lines4.append(res)
+
+
+print(lines4)
+
+df3 = pd.DataFrame(lines4)
+df3.columns=["Zone"]
+df3["Zone"] = df3["Zone"].str.replace('\t',' ')
+df3["Zone"]
+
+df['Place of Supply'] = df3['Zone']
+df.head(10)
+
+
+def get_pdf_file_content(file):
+    resource_manager = PDFResourceManager(caching=True)
+    out_text = StringIO()
+    codec = 'utf-8'
+    laParams = LAParams()
+    text_converter = TextConverter(resource_manager, out_text, laparams=laParams)
+    fp = open(file, 'rb')
+    interpreter = PDFPageInterpreter(resource_manager, text_converter)
+    for page in PDFPage.get_pages(fp, pagenos=set(), maxpages=0, password="", caching=True, check_extractable=True):
+        interpreter.process_page(page)
+    text = out_text.getvalue()
+    fp.close()
+    text_converter.close()
+    out_text.close()
+    
+    return text
+
+for file in glob.glob(path + "/*.pdf"):
+    if file.endswith('.pdf'):
+        with pdfplumber.open(file) as pdf:
+            pages = pdf.pages[0]
+            txt = get_pdf_file_content(file)
+            #print(txt)
+
+#!pip install partition
+#import partition
+
+#Line4 = namedtuple('Line4', 'Place GST')
+liness = []
+for file in glob.glob(path + "/*.pdf"):
+    if file.endswith('.pdf'):
+        with pdfplumber.open(file) as pdf:
+            pages = pdf.pages[0]
+            txt = get_pdf_file_content(file)
+            #print(txt)
+            count = 0
+            for line in txt.split('\n'):
+                count += 1
+                if count in range(13,20):
+                    sep1 = "Mobile"
+                    ad = line.split(sep1,1)[0]
+                    sep2 = "GST"
+                    ad1= ad.split(sep2,1)[0]
+                    ad1 = ad1.replace('\t', ' ').rstrip()
+                    ad2 = "".join(ad1.splitlines())
+                    liness.append(ad2)
+
+print(liness)
+
+res = [val for idx, val in enumerate(liness) 
+       if val or (not val and liness[idx - 0])] 
+print(res)
+
+myList = [item for item in res]
+newString = ' '.join(myList)
+#print(newString)
+#print(newString.rsplit(',', 1))
+#s_nums = 'one1two22three333four'
+
+newString1 = re.split(',\s\d{6}', newString)
+#print(newString1)
+zipcode = re.findall('\d{6}',newString)
+#print(zipcode)
+#newString2 = re.split('\d{6}', newString)
+
+addr = [val for idx, val in enumerate(newString1) 
+       if val or (not val and newString1[idx - 0])] 
+print(addr)
+
+df4 = pd.DataFrame(addr)
+df4.columns=["Address"]
+df4["Address"] = df4["Address"].str.replace('\n','')
+df4
+
+df5 = pd.DataFrame(zipcode)
+df5.columns=["Zipcode"]
+df5
+
+df["Customer_Address"] = df4["Address"]
+df["Zipcode"] = df5["Zipcode"]
+
+df.head(10)
+
+from itertools import islice
+
+pro = []
+for file in glob.glob(path + "/*.pdf"):
+    if file.endswith('.pdf'):
+        with pdfplumber.open(file) as pdf:
+            pages = pdf.pages[0]
+            txt = get_pdf_file_content(file)
+            linesBefore = list()
+            for line in txt.split('\n'):
+                linesBefore.append(line.rstrip())
+                if len(linesBefore) > 4: #Adding up to 4 lines
+                    linesBefore.pop(0)
+                if "HSN	Code:" in line:
+                    if len(linesBefore) == 4: # if there are at least 3 lines before the match
+                        for i in range(3):
+                            pr = linesBefore[i].replace('\t', ' ').rstrip()
+                            #Prod = print(linesBefore[i])
+                            pro.append(pr)
+
+print(pro)
+
+
+pron = [val for idx, val in enumerate(pro) 
+       if val or (not val and pro[idx - 0])] 
+print(pron)
+
+myList1 = [item for item in pron]
+pro1 = ' '.join(myList1)
+print(pro1)
+#print(pron)
+product = re.split('ABC FGH ', pro1)
+print(product)
+
+prodc = [val for idx, val in enumerate(product) 
+       if val or (not val and product[idx - 0])] 
+#print(prodc)
+
+print(prodc)
+
+df6 = pd.DataFrame(prodc)
+df6.columns = ["Item_Name"]
+df6["Item_Name"]= df6["Item_Name"].replace('\t',' ')
+df6["Item_Name"]
+#df6["Item_Name"]=df6["Item_Name"].tail(-1)
+
+qua = []
+for file in glob.glob(path + "/*.pdf"):
+    if file.endswith('.pdf'):
+        with pdfplumber.open(file) as pdf:
+            pages = pdf.pages[0]
+            text = pages.extract_text()
+            text = pages.extract_text().replace('\t',' ')
+            #text = pages.extract_text().replace('\n',' ')
+            #zones = re.findall(r'[-+]?\d*\.\d+|\d+\s[-+]?\d*\.\d+|\d+\s[-+]?\d*\.\d+|\d+\s[-+]?\d*\.\d+|\d+\s[-+]?\d*\.\d+|\d+',text)
+            quan = re.findall(r'\d+\s\d+\.\d+\s\d+\.\d+',text)
+            #zone = re.compile(r'\d\d[-][a-zA-Z]+\s[a-zA-Z]+')
+            print(quan)
+            qua.append(quan)
+
+
+print(qua)
+quant= [val for idx, val in enumerate(qua) 
+       if val or (not val and qua[idx - 0])] 
+print(quant)
+
+import itertools
+
+quanty = list(itertools.chain.from_iterable(quant))
+print(quanty)
+
+Qua = [i.split(' ', 1)[0] for i in quanty]
+print(Qua)
+
+#randomList = [1, 'a', 0, False, True, '0']
+
+Qua = [i for i in Qua if i != '00']
+Qua
+
+
+df7 = pd.DataFrame(Qua)
+df7.columns = ["Quantity"]
+
+df6["Item_Quantity"]=df7["Quantity"]
+
+#df.to_csv('invoices.csv', index=False)
+
+
+Line5 = namedtuple('Line5', 'Order quan')
+quat = []
+for file in glob.glob(path + "/*.pdf"):
+    if file.endswith('.pdf'):
+        with pdfplumber.open(file) as pdf:
+            pages = pdf.pages[0]
+            text = pages.extract_text()
+            #text = pages.extract_text().replace('\n',' ')
+            quan = re.compile(r'\d+\s\d+\.\d+\s\d+\.\d+')
+            matches = quan.findall(text)
+            for row in text.split('\n'):
+                if row.startswith('Order	No'):
+                    Order = row.split()[-1]
+            for match in matches:
+                #print(match)
+                Qua1 = [i.split(' ', 1)[0] for i in match]
+                Qua1 = Qua1[0]
+                #print(Qua1)
+                #Qua2 = [i for i in Qua1 if i != '0']
+                #pronu = [val for idx, val in enumerate(Qua1) 
+                 # if val or (not val and Qua1[idx - 0])] 
+                #print(pronu)
+                #print(Qua2)
+                #quanty1 = list(itertools.chain.from_iterable(Qua2))
+                #print(quanty1)
+
+                #zone = re.compile(r'\d\d[-][a-zA-Z]+\s[a-zA-Z]+')
+                #print(Order)
+                #item = qua.append(quan)
+                itms = quat.append(Line5(Order,Qua1))
+
+print(quat)
+#Qua = [i.split(' ', 1)[0] for i in qua]
+#print(Qua)
+#Qua = [i.split(' ', 1)[0] for i in quanty]
+
+
+df8 = pd.DataFrame(quat)
+df8
+
+df8.shape
+df8.describe()
+
+
+df8 = df8[df8['quan']!='0']
+df8 = df8.reset_index(drop=True)
+df8.head(15)
+
+df6["OrderID"] = df8["Order"]
+
+df6
+
+df
+#result = pd.merge(left, right, how="left", on=["key1", "key2"])
+result = df6.merge(df, on='OrderID', how='left')
+result
+result.to_csv('FirstCryInvoices.csv', index=False)
